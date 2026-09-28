@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Multimodal Capture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 6px 4px;
+    overflow: hidden;
+  }
+  .multimodal-pod {
+    width: 100%;
+    max-width: 580px;
+    background:
+      radial-gradient(ellipse at 30% 8%, rgba(255,255,255,0.98), rgba(255,255,255,0.5) 35%, rgba(210,238,255,0.75) 75%),
+      linear-gradient(155deg, rgba(245,252,255,0.96) 0%, rgba(195,228,255,0.9) 50%, rgba(150,200,248,0.92) 100%);
+    border-radius: 36px;
+    border: 2px solid rgba(255,255,255,0.95);
+    box-shadow:
+      0 14px 32px rgba(35,80,150,0.22),
+      inset 0 3px 6px rgba(255,255,255,0.95),
+      inset 0 -5px 12px rgba(40,100,190,0.18);
+    padding: 14px 20px 16px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .multimodal-pod::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 12%; right: 12%;
+    height: 14px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 100%);
+    border-radius: 0 0 50% 50%;
+    pointer-events: none;
+  }
+  .header-row {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  .title {
+    color: #104080;
+    font-size: 12.5px;
+    font-weight: 850;
+    letter-spacing: 0.8px;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .subtitle {
+    color: #386ba8;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    margin-top: 1px;
+  }
+  .viewport-container {
+    width: 100%;
+    height: 220px;
+    background: #06162a;
+    border-radius: 20px;
+    border: 2px solid rgba(255,255,255,0.85);
+    box-shadow: inset 0 4px 12px rgba(0,0,0,0.6), 0 3px 8px rgba(30,70,140,0.18);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .viewport-container::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 40%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 100%);
+    border-radius: 18px 18px 45% 45%;
+    pointer-events: none;
+  }
+  #previewVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    display: none;
+  }
+  .standby-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #79a6d8;
+    text-align: center;
+    padding: 20px;
+  }
+  .standby-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 25%, #ffffff 0%, #4facfe 50%, #0066cc 100%);
+    box-shadow: 0 0 16px rgba(0,180,255,0.4), inset 0 2px 4px rgba(255,255,255,0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .standby-icon svg {
+    width: 22px;
+    height: 22px;
+    fill: #ffffff;
+  }
+  .standby-title {
+    font-size: 11px;
+    font-weight: 800;
+    color: #e0f0ff;
+    letter-spacing: 0.8px;
+  }
+  .standby-sub {
+    font-size: 9px;
+    color: #8bb3e0;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+  }
+  .live-badge {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    background: rgba(10,35,70,0.75);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 999px;
+    padding: 3px 9px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.6px;
+    z-index: 10;
+  }
+  .rec-badge {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: rgba(220,30,30,0.85);
+    border: 1px solid rgba(255,255,255,0.8);
+    border-radius: 999px;
+    padding: 3px 9px;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+    font-weight: 850;
+    color: #ffffff;
+    letter-spacing: 0.8px;
+    box-shadow: 0 0 10px rgba(255,40,40,0.6);
+    z-index: 10;
+  }
+  .rec-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ffffff;
+    animation: blinkRec 1s infinite;
+  }
+  @keyframes blinkRec {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+  .wave-canvas {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 36px;
+    z-index: 10;
+    pointer-events: none;
+    display: none;
+  }
+  .controls-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+  }
+  .action-btn {
+    border: 2px solid rgba(255,255,255,0.95);
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.8px;
+    padding: 9px 24px;
+    cursor: pointer;
+    outline: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.12s, box-shadow 0.12s, background 0.2s;
+  }
+  .btn-start {
+    background: radial-gradient(circle at 35% 25%, #ffffff 0%, #3aa0ff 45%, #1062d0 80%, #063c88 100%);
+    color: #ffffff;
+    box-shadow:
+      0 6px 14px rgba(20,70,160,0.32),
+      inset 0 2px 4px rgba(255,255,255,0.9),
+      inset 0 -2px 5px rgba(0,30,80,0.4);
+    text-shadow: 0 1px 2px rgba(0,20,60,0.5);
+  }
+  .btn-start:hover {
+    transform: scale(1.04);
+    box-shadow: 0 8px 18px rgba(20,70,160,0.42), inset 0 2px 5px rgba(255,255,255,1);
+  }
+  .btn-start:active {
+    transform: scale(0.97);
+  }
+  .btn-stop {
+    background: radial-gradient(circle at 35% 25%, #ffffff 0%, #ff5252 45%, #d32f2f 80%, #8b0000 100%);
+    color: #ffffff;
+    box-shadow:
+      0 6px 16px rgba(210,40,40,0.4),
+      inset 0 2px 4px rgba(255,255,255,0.9),
+      inset 0 -2px 5px rgba(80,0,0,0.4);
+    text-shadow: 0 1px 2px rgba(60,0,0,0.5);
+    display: none;
+  }
+  .btn-stop:hover {
+    transform: scale(1.04);
+    box-shadow: 0 8px 20px rgba(210,40,40,0.55), inset 0 2px 5px rgba(255,255,255,1);
+  }
+  .btn-stop:active {
+    transform: scale(0.97);
+  }
+  .status-toast {
+    font-size: 9.5px;
+    font-weight: 750;
+    color: #1a5296;
+    letter-spacing: 0.5px;
+    text-align: center;
+    margin-top: 8px;
+    min-height: 14px;
+  }
+  .camera-selector-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .cam-select-btn {
+    border: 1.5px solid rgba(255,255,255,0.95);
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    padding: 7px 16px;
+    min-height: 40px;
+    cursor: pointer;
+    outline: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.95), rgba(255,255,255,0.5) 45%),
+      linear-gradient(155deg, rgba(250,253,255,0.95) 0%, rgba(215,235,255,0.85) 50%, rgba(175,215,255,0.9) 100%);
+    color: #124e88;
+    box-shadow: 0 3px 8px rgba(35,80,150,0.14), inset 0 2px 4px rgba(255,255,255,0.95);
+    transition: transform 0.12s, box-shadow 0.12s, background 0.15s, color 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cam-select-btn:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 10px rgba(35,80,150,0.22), inset 0 2px 5px rgba(255,255,255,1);
+  }
+  .cam-select-btn.active {
+    background: radial-gradient(circle at 35% 25%, #ffffff 0%, #3aa0ff 45%, #1062d0 80%, #063c88 100%);
+    color: #ffffff;
+    border-color: rgba(255,255,255,0.98);
+    box-shadow: 0 4px 14px rgba(20,70,160,0.38), inset 0 2px 4px rgba(255,255,255,0.95), inset 0 -2px 5px rgba(0,30,80,0.35);
+    text-shadow: 0 1px 2px rgba(0,20,60,0.45);
+  }
+  @media (max-height: 550px) and (orientation: landscape), (max-width: 600px) {
+    .multimodal-pod {
+      padding: 8px 12px 10px 12px;
+      border-radius: 22px;
+    }
+    .viewport-container {
+      height: 145px;
+      margin-bottom: 8px;
+    }
+    .standby-display {
+      padding: 8px;
+      gap: 4px;
+    }
+    .standby-icon {
+      width: 32px;
+      height: 32px;
+    }
+    .standby-icon svg {
+      width: 16px;
+      height: 16px;
+    }
+    .camera-selector-row {
+      margin-bottom: 6px;
+      gap: 6px;
+    }
+    .cam-select-btn {
+      min-height: 42px;
+      padding: 6px 14px;
+      font-size: 10px;
+    }
+    .action-btn {
+      min-height: 44px;
+      padding: 8px 20px;
+      font-size: 11px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="multimodal-pod">
+  <div class="header-row">
+    <div class="title">LIVE MULTIMODAL CAPTURE</div>
+    <div class="subtitle">SYNCHRONISED MICROPHONE & WEBCAM FEED</div>
+  </div>
+
+  <div class="viewport-container" id="viewport">
+    <video id="previewVideo" autoplay playsinline muted></video>
+    <div class="live-badge" id="liveBadge" style="display: none;">
+      <span>WEBCAM ACTIVE</span>
+    </div>
+    <div class="rec-badge" id="recBadge">
+      <span class="rec-dot"></span>
+      <span id="recTimer">REC 00:00</span>
+    </div>
+    <canvas class="wave-canvas" id="waveCanvas"></canvas>
+
+    <div class="standby-display" id="standbyDisplay">
+      <div class="standby-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg>
+      </div>
+      <div class="standby-title">SENSORS OFFLINE • STANDBY</div>
+      <div class="standby-sub">Microphone and camera disengaged. Click START CAPTURE to engage live feed.</div>
+    </div>
+  </div>
+
+  <div class="camera-selector-row" id="cameraSelectorRow">
+    <button type="button" class="cam-select-btn active" id="camFrontBtn">
+      <span>📷 FRONT CAMERA</span>
+    </button>
+    <button type="button" class="cam-select-btn" id="camBackBtn">
+      <span>📷 BACK CAMERA</span>
+    </button>
+  </div>
+
+  <div class="controls-row">
+    <button class="action-btn btn-start" id="startBtn">
+      <span>🔴 START CAPTURE</span>
+    </button>
+    <button class="action-btn btn-stop" id="stopBtn">
+      <span>⏹️ STOP CAPTURE</span>
+    </button>
+  </div>
+
+  <div class="status-toast" id="statusToast">Awaiting sensor engagement.</div>
+</div>
+
+<script>
+(function() {
+  const startBtn = document.getElementById("startBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const camFrontBtn = document.getElementById("camFrontBtn");
+  const camBackBtn = document.getElementById("camBackBtn");
+  const cameraSelectorRow = document.getElementById("cameraSelectorRow");
+  const previewVideo = document.getElementById("previewVideo");
+  const standbyDisplay = document.getElementById("standbyDisplay");
+  const liveBadge = document.getElementById("liveBadge");
+  const recBadge = document.getElementById("recBadge");
+  const recTimer = document.getElementById("recTimer");
+  const waveCanvas = document.getElementById("waveCanvas");
+  const statusToast = document.getElementById("statusToast");
+  const canvasCtx = waveCanvas.getContext("2d");
+
+  let selectedFacingMode = "user"; // Default to FRONT CAMERA
+
+  camFrontBtn.addEventListener("click", () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") return;
+    selectedFacingMode = "user";
+    camFrontBtn.classList.add("active");
+    camBackBtn.classList.remove("active");
+  });
+
+  camBackBtn.addEventListener("click", () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") return;
+    selectedFacingMode = "environment";
+    camBackBtn.classList.add("active");
+    camFrontBtn.classList.remove("active");
+  });
+
+  let mediaStream = null;
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let timerInterval = null;
+  let startTime = 0;
+  let audioCtx = null;
+  let analyser = null;
+  let animId = null;
+
+  // Streamlit Custom Component protocol
+  function sendMsg(type, data) {
+    window.parent.postMessage({
+      isStreamlitMessage: true,
+      type: type,
+      ...data
+    }, "*");
+  }
+
+  function setHeight() {
+    const pod = document.querySelector(".multimodal-pod");
+    const h = pod ? pod.offsetHeight + 12 : 380;
+    sendMsg("streamlit:setFrameHeight", { height: h });
+  }
+
+  function setComponentVal(val) {
+    sendMsg("streamlit:setComponentValue", { value: val });
+  }
+
+  // Announce ready
+  sendMsg("streamlit:componentReady", { apiVersion: 1 });
+  setHeight();
+
+  window.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "streamlit:render") {
+      setHeight();
+    }
+  });
+
+  function formatDuration(sec) {
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function drawWaveform() {
+    if (!analyser) return;
+    const w = waveCanvas.width = waveCanvas.clientWidth;
+    const h = waveCanvas.height = waveCanvas.clientHeight;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    analyser.getByteTimeDomainData(dataArray);
+
+    canvasCtx.clearRect(0, 0, w, h);
+    canvasCtx.lineWidth = 2;
+    canvasCtx.strokeStyle = "#00e5ff";
+    canvasCtx.shadowColor = "#00f0ff";
+    canvasCtx.shadowBlur = 6;
+    canvasCtx.beginPath();
+
+    const sliceWidth = w / (bufferLength - 1);
+    let x = 0;
+    for (let i = 0; i < bufferLength; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = (v * h) / 2;
+      if (i === 0) canvasCtx.moveTo(x, y);
+      else canvasCtx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    canvasCtx.stroke();
+    canvasCtx.shadowBlur = 0;
+
+    animId = requestAnimationFrame(drawWaveform);
+  }
+
+  startBtn.addEventListener("click", async () => {
+    statusToast.textContent = "Requesting camera & microphone permissions...";
+    cameraSelectorRow.style.display = "none";
+    setHeight();
+
+    const videoConstraints = {
+      width: { ideal: 640 },
+      height: { ideal: 480 },
+      facingMode: { ideal: selectedFacingMode }
+    };
+
+    try {
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: true
+        });
+      } catch (firstErr) {
+        console.warn("Requested camera facingMode unavailable, falling back to default camera:", firstErr);
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: true
+        });
+      }
+    } catch (err) {
+      cameraSelectorRow.style.display = "flex";
+      setHeight();
+      statusToast.textContent = "⚠️ Permission denied or camera/microphone not found.";
+      return;
+    }
+
+    // Connect preview video and handle mirroring (selfie flipped, rear unflipped)
+    if (selectedFacingMode === "environment") {
+      previewVideo.style.transform = "scaleX(1)";
+    } else {
+      previewVideo.style.transform = "scaleX(-1)";
+    }
+    previewVideo.srcObject = mediaStream;
+    previewVideo.style.display = "block";
+    standbyDisplay.style.display = "none";
+    liveBadge.style.display = "flex";
+    recBadge.style.display = "flex";
+    waveCanvas.style.display = "block";
+
+    // Setup audio visualizer
+    try {
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioCtxClass();
+      const source = audioCtx.createMediaStreamSource(mediaStream);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      drawWaveform();
+    } catch (e) {}
+
+    // Determine supported MediaRecorder mime type
+    let mimeType = "video/webm;codecs=vp8,opus";
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      if (MediaRecorder.isTypeSupported("video/webm")) mimeType = "video/webm";
+      else if (MediaRecorder.isTypeSupported("video/mp4")) mimeType = "video/mp4";
+      else mimeType = "";
+    }
+
+    recordedChunks = [];
+    try {
+      mediaRecorder = new MediaRecorder(mediaStream, mimeType ? { mimeType } : {});
+    } catch (e) {
+      mediaRecorder = new MediaRecorder(mediaStream);
+    }
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) {
+        recordedChunks.push(event.data);
+      }
+    };
+
+    mediaRecorder.start(250);
+    startTime = Date.now();
+    timerInterval = setInterval(() => {
+      const elapsed = (Date.now() - startTime) / 1000;
+      recTimer.textContent = "REC " + formatDuration(elapsed);
+    }, 500);
+
+    startBtn.style.display = "none";
+    stopBtn.style.display = "inline-flex";
+    statusToast.textContent = "🔴 Recording live multimodal feed. Click STOP CAPTURE when finished.";
+  });
+
+  stopBtn.addEventListener("click", () => {
+    if (!mediaRecorder || mediaRecorder.state === "inactive") return;
+
+    statusToast.textContent = "⏳ Packaging multimodal capture stream...";
+    clearInterval(timerInterval);
+    if (animId) cancelAnimationFrame(animId);
+
+    // Flush in-flight data before stopping (essential for iOS Safari / WebKit)
+    if (mediaRecorder.state === "recording") {
+      try {
+        mediaRecorder.requestData();
+      } catch (e) {}
+    }
+
+    mediaRecorder.onstop = () => {
+      // Disengage hardware streams immediately
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+      previewVideo.srcObject = null;
+      previewVideo.style.display = "none";
+      standbyDisplay.style.display = "flex";
+      liveBadge.style.display = "none";
+      recBadge.style.display = "none";
+      waveCanvas.style.display = "none";
+
+      const recMime = (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : "";
+      let blobType = "video/webm";
+      if (recMime.startsWith("video/mp4")) {
+        blobType = "video/mp4";
+      } else if (recMime.startsWith("video/webm")) {
+        blobType = "video/webm";
+      }
+
+      const blob = new Blob(recordedChunks, { type: blobType });
+      const durationSec = Math.max(1, (Date.now() - startTime) / 1000);
+
+      // Guard against empty or truncated payload (< 100 bytes)
+      if (blob.size < 100) {
+        statusToast.textContent = "⚠️ Recording was too brief. Tap Start Capture to try again.";
+        startBtn.style.display = "inline-flex";
+        stopBtn.style.display = "none";
+        cameraSelectorRow.style.display = "flex";
+        setHeight();
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = function() {
+        const dataUrl = reader.result;
+        setComponentVal({
+          data_url: dataUrl,
+          video_base64: dataUrl,
+          mime_type: blobType,
+          duration: durationSec,
+          timestamp: Date.now()
+        });
+        statusToast.textContent = "✅ Capture complete! Audio & video ready for analysis.";
+        startBtn.style.display = "inline-flex";
+        stopBtn.style.display = "none";
+        cameraSelectorRow.style.display = "flex";
+        setHeight();
+      };
+      reader.readAsDataURL(blob);
+    };
+
+    mediaRecorder.stop();
+  });
+})();
+</script>
+</body>
+</html>
